@@ -17,6 +17,14 @@ version:    26.01.20.5.08
 
 # Imports
 import os
+
+# Fix macOS SSL certificate verification (Python from python.org doesn't use system certs)
+import ssl
+import certifi
+os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
+
 import csv
 import re
 import time
@@ -29,6 +37,7 @@ from random import choice, shuffle, randint
 from datetime import datetime
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support.select import Select
@@ -216,7 +225,14 @@ def apply_filters() -> None:
         buffer(recommended_wait)
 
         wait_span_click(driver, sort_by)
-        wait_span_click(driver, date_posted)
+        if date_posted:
+            date_label = date_posted
+            date_fallbacks = {"Past week": ["Last week"], "Past month": ["Last month"], "Past 24 hours": [], "Any time": ["Any Time"]}
+            if not wait_span_click(driver, date_label):
+                for fallback in date_fallbacks.get(date_label, []):
+                    if wait_span_click(driver, fallback):
+                        break
+        # when date_posted is "", skip date filter (LinkedIn default is "Any time")
         buffer(recommended_wait)
 
         multi_sel_noWait(driver, experience_level) 
@@ -248,8 +264,24 @@ def apply_filters() -> None:
         multi_sel_noWait(driver, commitments)
         if benefits or commitments: buffer(recommended_wait)
 
-        show_results_button: WebElement = driver.find_element(By.XPATH, '//button[contains(translate(@aria-label, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "apply current filters to show")]')
-        show_results_button.click()
+        show_results_button = None
+        for xpath in [
+            '//button[contains(translate(@aria-label, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "apply current filters to show")]',
+            '//button[.//span[contains(translate(text(), "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "show result")]]',
+            '//button[normalize-space()="Show results"]',
+            '//button[contains(@aria-label, "Show")]',
+        ]:
+            try:
+                show_results_button = driver.find_element(By.XPATH, xpath)
+                break
+            except NoSuchElementException:
+                continue
+        if show_results_button is not None:
+            show_results_button.click()
+        else:
+            print_lg("Could not find 'Show results' button; closing filter panel with Escape.")
+            driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+            buffer(recommended_wait)
 
         global pause_after_filters
         if pause_after_filters and "Turn off Pause after search" == pyautogui.confirm("These are your configured search results and filter. It is safe to change them while this dialog is open, any changes later could result in errors and skipping this search run.", "Please check your results", ["Turn off Pause after search", "Look's good, Continue"]):
@@ -481,7 +513,7 @@ def answer_questions(modal: WebElement, questions_list: set, work_location: str,
                         answer = country 
                     elif 'state' in label:
                         answer = state
-                    elif 'city' in label:
+                    elif 'city' in label or 'location' in label:
                         answer = current_city if current_city else work_location
                     else:
                         answer = work_location

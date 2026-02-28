@@ -15,7 +15,7 @@ version:    26.01.20.5.08
 '''
 
 from modules.helpers import get_default_temp_profile, make_directories
-from config.settings import run_in_background, stealth_mode, disable_extensions, safe_mode, file_name, failed_file_name, logs_folder_path, generated_resume_path
+from config.settings import run_in_background, stealth_mode, disable_extensions, safe_mode, file_name, failed_file_name, logs_folder_path, generated_resume_path, chrome_version_main
 from config.questions import default_resume_path
 if stealth_mode:
     import undetected_chromedriver as uc
@@ -50,7 +50,11 @@ def createChromeSession(isRetry: bool = False):
         # except (FileNotFoundError, PermissionError) as e: 
         #     print_lg("(Undetected Mode) Got '{}' when using pre-installed ChromeDriver.".format(type(e).__name__)) 
             print_lg("Downloading Chrome Driver... This may take some time. Undetected mode requires download every run!")
-            driver = uc.Chrome(options=options)
+            kwargs = {"options": options}
+            if chrome_version_main is not None:
+                kwargs["version_main"] = chrome_version_main
+                print_lg(f"Using ChromeDriver for Chrome version {chrome_version_main} (from config/settings.py)")
+            driver = uc.Chrome(**kwargs)
     else: driver = webdriver.Chrome(options=options) #, service=Service(executable_path="C:\\Program Files\\Google\\Chrome\\chromedriver-win64\\chromedriver.exe"))
     driver.maximize_window()
     wait = WebDriverWait(driver, 5)
@@ -70,6 +74,10 @@ except Exception as e:
     critical_error_log("In Opening Chrome", e)
     from pyautogui import alert
     alert(msg, "Error in opening chrome")
-    try: driver.quit()
-    except NameError: exit()
-    
+    if driver is not None:
+        try:
+            driver.quit()
+        except Exception:
+            pass
+    exit(1)
+

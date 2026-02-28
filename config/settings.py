@@ -40,6 +40,7 @@ run_non_stop = False                # True or False, Note: True or False are cas
 '''
 Note: Will be treated as False if `run_in_background = True`
 '''
+# Pause on failed question / pause before submit: see config/questions.py (pause_at_failed_question, pause_before_submit)
 alternate_sortby = True             # True or False, Note: True or False are case-sensitive
 cycle_date_posted = True            # True or False, Note: True or False are case-sensitive
 stop_date_cycle_at_24hr = True      # True or False, Note: True or False are case-sensitive
@@ -84,6 +85,9 @@ keep_screen_awake = True            # True or False, Note: True or False are cas
 
 # Run in undetected mode to bypass anti-bot protections (Preview Feature, UNSTABLE. Recommended to leave it as False)
 stealth_mode = True                # True or False, Note: True or False are case-sensitive
+
+# Pin ChromeDriver to your Chrome major version if you get "ChromeDriver only supports Chrome version X / Current browser version is Y". Set to None for auto.
+chrome_version_main = 145          # e.g. 145, 146, or None
 
 # Do you want to get alerts on errors related to AI API connection?
 showAiErrorAlerts = False            # True or False, Note: True or False are case-sensitive
